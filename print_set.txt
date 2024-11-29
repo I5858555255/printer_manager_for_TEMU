@@ -1,0 +1,3 @@
+打印机A
+打印机B
+HPRT HLP106B(203dpi)
