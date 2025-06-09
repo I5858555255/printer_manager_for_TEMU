@@ -7,6 +7,7 @@ from PySide6.QtCore import Qt, QDateTime, QEvent
 from typing import Optional
 from pathlib import Path
 import subprocess
+from print_logger import log_print_job
 
 
 
@@ -100,14 +101,14 @@ class PrinterPanel:
         file_name = self.file_path.text().strip()
         if not file_name.endswith('.pdf'):
             file_name += '.pdf'
-        folder_path = Path("D:\\temuskupdf")
+        folder_path = Path(self.manager.temuskupdf_folder) # Use configured path
         full_path = os.path.join(folder_path, file_name)
         if os.path.exists(full_path):
             self.file_path.setText(full_path)
             self.copies_spinbox.setValue(0)  # 将打印数量清空
             self.copies_spinbox.setFocus()
         else:
-            QMessageBox.warning(self.parent_widget, "警告", "文件不存在")
+            QMessageBox.warning(self.parent_widget, "警告", f"文件不存在: {full_path}")
 
     def _handle_spinbox_key_press(self, event):
         if event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter:
@@ -167,6 +168,16 @@ class PrinterPanel:
                 filename = os.path.basename(file_path)
                 current_time = QDateTime.currentDateTime().toString("yyyy-MM-dd hh:mm:ss")
                 copies = self.copies_spinbox.value()
+
+                # Log the print job
+                log_print_job(
+                    timestamp=current_time,
+                    sku_or_filename=filename,
+                    quantity=copies,
+                    printer_name=self.printer_name,
+                    status="Printed"
+                )
+
                 new_item = f"{current_time} - 打印文件: {filename} (份数: {copies}) - 已打印"
                 self.queue_list.insertItem(0, new_item)
                 self.file_path.clear()
@@ -200,7 +211,7 @@ class PrinterPanel:
             return None
 
     def _load_common_files(self):
-        common_files_folder = Path("D:\\other")
+        common_files_folder = Path(self.manager.other_folder) # Use configured path
         if common_files_folder.exists():
             for file in common_files_folder.glob("*.pdf"):
                 self.common_files_list.addItem(file.name)
@@ -210,11 +221,11 @@ class PrinterPanel:
 
     def _print_common_file(self, item):
         file_name = item.text()
-        folder_path = Path("D:\\other")
+        folder_path = Path(self.manager.other_folder) # Use configured path
         full_path = os.path.join(folder_path, file_name)
         if os.path.exists(full_path):
             self.file_path.setText(full_path)
             self.copies_spinbox.setValue(1)
             self._print_file()
         else:
-            QMessageBox.warning(self.parent_widget, "警告", "文件不存在")
+            QMessageBox.warning(self.parent_widget, "警告", f"文件不存在: {full_path}")
