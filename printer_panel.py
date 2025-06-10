@@ -183,9 +183,61 @@ class PrinterPanel:
 
                 new_item = f"{current_time} - 打印文件: {filename} (份数: {copies}) - 已打印"
                 self.queue_list.insertItem(0, new_item)
+
+                # --- Try to print separator page ---
+                separator_pdf_name = "分割72.pdf"
+                if self.manager and self.manager.other_folder:
+                    full_separator_path = os.path.join(self.manager.other_folder, separator_pdf_name)
+                    if os.path.exists(full_separator_path):
+                        # gs_path, width_mm, height_mm, self.is_landscape are from the main document processing
+                        command_separator = [
+                            gs_path,
+                            "-dNOPAUSE", "-dBATCH", "-dSAFER",
+                            "-sDEVICE=mswinpr2",
+                            f"-sOutputFile=%printer%{self.printer_name}",
+                            "-dNumCopies=1", # Force 1 copy for separator
+                            f"-dDEVICEWIDTHPOINTS={width_mm * 2.834645669291339}",
+                            f"-dDEVICEHEIGHTPOINTS={height_mm * 2.834645669291339}",
+                            "-dORIENT1=" + ("1" if hasattr(self, 'is_landscape') and self.is_landscape else "0"),
+                            "-c",
+                            "<< /Policies << /PageSize 3 >> >> setpagedevice",
+                            # Using the same page offset and scaling as the main document for the separator.
+                            # This might need adjustment if separator pages have different layout requirements.
+                            f"<< /PageOffset [{2.8 * 2.834645669291339} -{1 * 2.834645669291339}] /BeginPage {{ {0.982} dup scale }}  >> setpagedevice",
+                            "-f",
+                            full_separator_path
+                        ]
+                        try:
+                            # Assuming shell=True might be needed if gs_path is not always a full path.
+                            # Based on previous changes to _find_ghostscript.
+                            result_separator = subprocess.run(command_separator, check=True, capture_output=True, text=True, shell=True)
+                            if result_separator.returncode == 0:
+                                separator_time = QDateTime.currentDateTime().toString("yyyy-MM-dd hh:mm:ss")
+                                log_print_job(
+                                    timestamp=separator_time,
+                                    sku_or_filename=separator_pdf_name,
+                                    quantity=1,
+                                    printer_name=self.printer_name,
+                                    status="Printed Separator" # Differentiate status
+                                )
+                                if self.manager and hasattr(self.manager, '_load_print_history'):
+                                    self.manager._load_print_history()
+                                # Optionally add to local queue_list as well
+                                separator_queue_item = f"{separator_time} - 打印文件: {separator_pdf_name} (份数: 1) - 已打印"
+                                self.queue_list.insertItem(1, separator_queue_item) # Insert below main item
+                            else:
+                                QMessageBox.warning(self.parent_widget, "打印分隔页错误", f"打印分隔页 {separator_pdf_name} 失败: {result_separator.stderr}")
+                        except Exception as sep_e:
+                            QMessageBox.warning(self.parent_widget, "打印分隔页异常", f"打印分隔页 {separator_pdf_name} 时发生错误: {str(sep_e)}")
+                    else:
+                        QMessageBox.warning(self.parent_widget, "分隔页文件未找到", f"分隔页文件 {separator_pdf_name} 在目录 {self.manager.other_folder} 中未找到。跳过打印分隔页。")
+                else:
+                    QMessageBox.warning(self.parent_widget, "配置错误", "无法确定 'other_folder' 路径，跳过打印分隔页。")
+
+                # Reset for next print job (after main and potential separator)
                 self.file_path.clear()
                 self.copies_spinbox.setValue(1)
-                self.file_path.setFocus()  # 将焦点设置回文件路径输入框
+                self.file_path.setFocus()
             else:
                 raise Exception(f"打印失败: {result.stderr}")
 
