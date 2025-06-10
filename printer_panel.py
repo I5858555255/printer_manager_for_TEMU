@@ -177,6 +177,9 @@ class PrinterPanel:
                     printer_name=self.printer_name,
                     status="Printed"
                 )
+                # Refresh the history tab in the main manager UI
+                if self.manager and hasattr(self.manager, '_load_print_history'):
+                    self.manager._load_print_history()
 
                 new_item = f"{current_time} - 打印文件: {filename} (份数: {copies}) - 已打印"
                 self.queue_list.insertItem(0, new_item)
@@ -225,7 +228,8 @@ class PrinterPanel:
         full_path = os.path.join(folder_path, file_name)
         if os.path.exists(full_path):
             self.file_path.setText(full_path)
-            self.copies_spinbox.setValue(1)
+            # The self.copies_spinbox already contains the desired quantity.
+            # No need to set it to 1 anymore.
             self._print_file()
         else:
             QMessageBox.warning(self.parent_widget, "警告", f"文件不存在: {full_path}")
