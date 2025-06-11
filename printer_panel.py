@@ -7,6 +7,7 @@ from PySide6.QtCore import Qt, QDateTime, QEvent
 from typing import Optional
 from pathlib import Path
 import subprocess
+import sys # Added for sys.platform
 from print_logger import log_print_job
 
 
@@ -145,6 +146,11 @@ class PrinterPanel:
                 QMessageBox.warning(self.parent_widget, "警告", "未找到ghostscript，请确保正确安装了Ghostscript 10.04.0")
                 return
 
+            # Setup creation flags for subprocess to hide console window on Windows
+            creation_flags = 0
+            if sys.platform == "win32":
+                creation_flags = subprocess.CREATE_NO_WINDOW
+
             command = [
                 gs_path,
                 "-dNOPAUSE",
@@ -163,7 +169,14 @@ class PrinterPanel:
                 file_path
             ]
 
-            result = subprocess.run(command, check=True, capture_output=True, text=True)
+            result = subprocess.run(
+                command,
+                check=True,
+                capture_output=True,
+                text=True,
+                shell=True, # Added shell=True for consistency and potential path issues
+                creationflags=creation_flags
+            )
             if result.returncode == 0:
                 filename = os.path.basename(file_path)
                 current_time = QDateTime.currentDateTime().toString("yyyy-MM-dd hh:mm:ss")
@@ -208,9 +221,14 @@ class PrinterPanel:
                             full_separator_path
                         ]
                         try:
-                            # Assuming shell=True might be needed if gs_path is not always a full path.
-                            # Based on previous changes to _find_ghostscript.
-                            result_separator = subprocess.run(command_separator, check=True, capture_output=True, text=True, shell=True)
+                            result_separator = subprocess.run(
+                                command_separator,
+                                check=True,
+                                capture_output=True,
+                                text=True,
+                                shell=True,
+                                creationflags=creation_flags # Added creationflags
+                            )
                             if result_separator.returncode == 0:
                                 separator_time = QDateTime.currentDateTime().toString("yyyy-MM-dd hh:mm:ss")
                                 log_print_job(
